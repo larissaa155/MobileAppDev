@@ -2,75 +2,83 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(HeartbeatApp());
 }
 
-class MyApp extends StatelessWidget {
+class HeartbeatApp extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Heart Animation',
-      theme: ThemeData(
-        primarySwatch: Colors.pink,
-      ),
-      home: HeartPage(),
-    );
-  }
+  _HeartbeatAppState createState() => _HeartbeatAppState();
 }
 
-class HeartPage extends StatefulWidget {
-  @override
-  _HeartPageState createState() => _HeartPageState();
-}
-
-class _HeartPageState extends State<HeartPage>
-    with SingleTickerProviderStateMixin {
+class _HeartbeatAppState extends State<HeartbeatApp> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  final List<Confetti> confetti = [];
-  final int numberOfConfetti = 50;
+  late Animation<double> _animation;
+  int _timerSeconds = 10;
+  Timer? _timer;
+  bool _showMessage = false;
+  int _counter = 0;
+  List<int> _history = [];
+  int _customIncrement = 1;
 
   @override
   void initState() {
     super.initState();
-
-    // Initialize the AnimationController with standard bounds
     _controller = AnimationController(
       vsync: this,
-      duration: Duration(seconds: 2),
+      duration: Duration(seconds: 1),
     )..repeat(reverse: true);
 
-    // Create a Tween to handle the scaling range
-    _scaleAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.2,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
-
-    // Initialize confetti
-    for (int i = 0; i < numberOfConfetti; i++) {
-      confetti.add(Confetti());
-    }
-
-    // Start the confetti animation
-    animateConfetti();
+    _animation = Tween<double>(begin: 1.0, end: 1.3).animate(_controller);
   }
 
-  void animateConfetti() {
-    Future.delayed(Duration(milliseconds: 50), () {
-      if (mounted) {
-        // Check if widget is still mounted
-        setState(() {
-          for (var particle in confetti) {
-            particle.updatePosition();
-            if (particle.y > MediaQuery.of(context).size.height) {
-              particle.resetPosition();
-            }
-          }
-        });
-        animateConfetti();
+  void startTimer() {
+    setState(() {
+      _timerSeconds = 10;
+      _showMessage = false;
+    });
+
+    _timer?.cancel();
+    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_timerSeconds > 0) {
+          _timerSeconds--;
+        } else {
+          timer.cancel();
+          _showMessage = true;
+        }
+      });
+    });
+  }
+
+  void _incrementCounter() {
+    setState(() {
+      if (_counter + _customIncrement <= 100) {
+        _history.add(_counter);
+        _counter += _customIncrement;
+      }
+    });
+  }
+
+  void _decrementCounter() {
+    setState(() {
+      if (_counter > 0) {
+        _history.add(_counter);
+        _counter -= _customIncrement;
+      }
+    });
+  }
+
+  void _resetCounter() {
+    setState(() {
+      _history.add(_counter);
+      _counter = 0;
+    });
+  }
+
+  void _undo() {
+    setState(() {
+      if (_history.isNotEmpty) {
+        _counter = _history.removeLast();
       }
     });
   }
@@ -78,107 +86,102 @@ class _HeartPageState extends State<HeartPage>
   @override
   void dispose() {
     _controller.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Heart Animation'),
-      ),
-      body: Stack(
-        children: [
-          // Confetti layer
-          CustomPaint(
-            painter: ConfettiPainter(confetti),
-            size: Size.infinite,
-          ),
-          // Main content
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                Text(
-                  'Happy Valentine\'s Day',
-                  style: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.pink,
-                  ),
-                ),
-                SizedBox(height: 20),
-                ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: Image.asset('lib/assets/heart.png',
-                      width: 200, height: 200),
-                ),
-              ],
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text("Valentine's Heartbeat & Counter"),
+          backgroundColor: Colors.redAccent,
+        ),
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: Lottie.asset('assets/heart_animation.json', fit: BoxFit.cover),
             ),
-          ),
-        ],
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ScaleTransition(
+                    scale: _animation,
+                    child: Icon(
+                      Icons.favorite,
+                      color: Colors.red,
+                      size: 100,
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    "$_timerSeconds sec",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  ElevatedButton(
+                    onPressed: startTimer,
+                    child: Text("Start Heartbeat"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.pinkAccent,
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    'Counter: $_counter',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _counter == 0 ? Colors.red : _counter > 50 ? Colors.green : Colors.black),
+                  ),
+                  Slider(
+                    min: 0,
+                    max: 100,
+                    value: _counter.toDouble(),
+                    onChanged: (double value) {
+                      setState(() {
+                        _counter = value.toInt();
+                      });
+                    },
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton(onPressed: _incrementCounter, child: Text("+$_customIncrement")),
+                      SizedBox(width: 10),
+                      ElevatedButton(onPressed: _decrementCounter, child: Text("-$_customIncrement")),
+                      SizedBox(width: 10),
+                      ElevatedButton(onPressed: _resetCounter, child: Text("Reset")),
+                      SizedBox(width: 10),
+                      ElevatedButton(onPressed: _undo, child: Text("Undo")),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: TextField(
+                      decoration: InputDecoration(labelText: "Set Custom Increment"),
+                      keyboardType: TextInputType.number,
+                      onChanged: (value) {
+                        setState(() {
+                          _customIncrement = int.tryParse(value) ?? 1;
+                        });
+                      },
+                    ),
+                  ),
+                  if (_showMessage)
+                    AnimatedOpacity(
+                      opacity: _showMessage ? 1.0 : 0.0,
+                      duration: Duration(seconds: 2),
+                      child: Text(
+                        "Happy Valentine's Day! ❤️",
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.red),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-}
-
-class Confetti {
-  double x = 0;
-  double y = 0;
-  double speed = 0;
-  double angle = 0;
-  Color color = Colors.pink; // Initialize with a default color
-  double size = 0;
-
-  static final math.Random random = math.Random();
-  static final List<Color> colors = [
-    Colors.red,
-    Colors.pink,
-    Colors.purple,
-    Colors.blue,
-    Colors.yellow,
-    Colors.orange,
-  ];
-
-  Confetti() {
-    resetPosition();
-  }
-
-  void resetPosition() {
-    x = random.nextDouble() * 400;
-    y = -random.nextDouble() * 400;
-    speed = 1 + random.nextDouble() * 4;
-    angle = random.nextDouble() * 2 * math.pi;
-    color = colors[random.nextInt(colors.length)];
-    size = 5 + random.nextDouble() * 5;
-  }
-
-  void updatePosition() {
-    y += speed;
-    x += math.sin(angle) * 2;
-    angle += 0.1;
-  }
-}
-
-class ConfettiPainter extends CustomPainter {
-  final List<Confetti> confetti;
-
-  ConfettiPainter(this.confetti);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint();
-    for (var particle in confetti) {
-      paint.color = particle.color;
-      canvas.drawCircle(
-        Offset(particle.x, particle.y),
-        particle.size,
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => true;
 }
