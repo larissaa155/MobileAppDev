@@ -1,0 +1,13 @@
+pubspec.yaml
+dependencies:
+  flutter:
+    sdk: flutter
+  sqflite: ^2.2.2
+  path_provider: ^2.0.11
+  path: ^1.8.2
+
+environment:
+  sdk: ">=2.17.0 <3.0.0"
+
+flutter:
+  uses-material-design: true
